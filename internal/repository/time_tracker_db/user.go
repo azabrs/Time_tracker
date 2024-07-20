@@ -17,9 +17,6 @@ func (s *repository) GetUsers(req model.GetAllUsersReq) ([]model.GetAllUsersResp
 	if len(req.Filter.UserID) > 0 {
 		query = query.Where(goqu.Ex{"user_id": req.Filter.UserID})
 	}
-	if len(req.Filter.Description) > 0 {
-		query = query.Where(goqu.Ex{"description": req.Filter.Description})
-	}
 	if len(req.Filter.PassportNumber) > 0 {
 		query = query.Where(goqu.Ex{"passport_number": req.Filter.PassportNumber})
 	}
@@ -53,4 +50,55 @@ func (s *repository) GetUsers(req model.GetAllUsersReq) ([]model.GetAllUsersResp
 		return []model.GetAllUsersResp{}, fmt.Errorf("get data: %w", err)
 	}
 	return resp, nil
+}
+
+func (s *repository) DeleteUser(userId int64) error {
+	query := goqu.From(userTable)
+	query = query.Where(goqu.Ex{"user_id": userId})
+	sqlQuery, _, err := query.Delete().ToSQL()
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(sqlQuery, query)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *repository) ChangeUserData(userData model.UserData) error {
+	query := goqu.From(userTable).Update()
+	query = query.Where(goqu.Ex{"user_id": userData.UserID})
+	if userData.PassportSerie != "" {
+		query.Set(goqu.Ex{"passport_serie": userData.PassportSerie})
+	}
+	if userData.PassportNumber != "" {
+		query.Set(goqu.Ex{"passport_number": userData.PassportNumber})
+	}
+	sqlQuery, _, err := query.ToSQL()
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(sqlQuery, query)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *repository) IsUserExist(userId int64) error {
+	query := goqu.From(userTable)
+	query = query.Where(goqu.Ex{"user_id": userId})
+	sqlQuery, _, err := query.Select("user_id").ToSQL()
+	if err != nil {
+		return err
+	}
+	var temp []int64
+	if err := s.db.Select(&temp, sqlQuery); err != nil {
+		return err
+	}
+	if len(temp) == 0 {
+		return fmt.Errorf("user with user_id %v doesnt exist", userId)
+	}
+	return nil
 }
